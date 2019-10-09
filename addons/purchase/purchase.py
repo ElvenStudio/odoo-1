@@ -1692,14 +1692,16 @@ class account_invoice(osv.Model):
         po_lines = po_line_obj.browse(cr, uid, po_line_ids, context=context)
         res = []
         for line in invoices.invoice_line:
-            for move in po_lines.move_ids:
-                if move.product_id.id == line.product_id.id and move.invoice_state != 'invoiced' and not(move.id in res):
-                    if move.product_uos and line.uos_id.id == move.product_uos.id and line.quantity == move.product_uos_qty:
-                        res.append(move.id)
-                        break
-                    elif line.uos_id.id == move.product_uom.id and line.quantity == move.product_uom_qty:
-                        res.append(move.id)
-                        break
+            for po_line in po_lines:
+                for move in po_line.move_ids:
+                    if move.product_id.id == line.product_id.id and move.invoice_state != 'invoiced' and not (
+                            move.id in res):
+                        if move.product_uos and line.uos_id.id == move.product_uos.id and line.quantity == move.product_uos_qty:
+                            res.append(move.id)
+                            break
+                        elif line.uos_id.id == move.product_uom.id and line.quantity == move.product_uom_qty:
+                            res.append(move.id)
+                            break
         return res
 
     def invoice_validate(self, cr, uid, ids, context=None):

@@ -286,13 +286,16 @@ class stock_picking(osv.osv):
     def _get_invoice_vals(self, cr, uid, key, inv_type, journal_id, move, context=None):
         if context is None:
             context = {}
-        partner, currency_id, company_id, user_id = key
+
+        # FIX PIT: considering payment_term and payment_mode in the key too
+        partner, currency_id, company_id, user_id, payment_term, payment_mode = key
+
+        # FIX PIT
         if inv_type in ('out_invoice', 'out_refund'):
             account_id = partner.property_account_receivable.id
-            payment_term = partner.property_payment_term.id or False
         else:
             account_id = partner.property_account_payable.id
-            payment_term = partner.property_supplier_payment_term.id or False
+
         return {
             'origin': move.picking_id.name,
             'date_invoice': context.get('date_inv', False),
@@ -300,6 +303,7 @@ class stock_picking(osv.osv):
             'partner_id': partner.id,
             'account_id': account_id,
             'payment_term': payment_term,
+            'payment_mode': payment_mode,  # FIX PIT
             'type': inv_type,
             'fiscal_position': partner.property_account_position.id,
             'company_id': company_id,
@@ -318,7 +322,23 @@ class stock_picking(osv.osv):
             origin = move.picking_id.name
             partner, user_id, currency_id = move_obj._get_master_data(cr, uid, move, company, context=context)
 
-            key = (partner, currency_id, company.id, user_id)
+            # FIX PIT
+            if inv_type in ('out_invoice', 'out_refund'):
+                # get payment_term and payment_mode from sale order if exists,
+                # otherwise from partner
+                if move.picking_id.sale_id:
+                    payment_term = move.picking_id.sale_id.payment_term.id or False
+                    payment_mode = move.picking_id.sale_id.payment_mode_id.id or False
+                else:
+                    payment_term = partner.property_payment_term.id or False
+                    payment_mode = partner.customer_payment_mode.id or False
+            else:
+                # get payment_term and payment_mode from from partner
+                payment_term = partner.property_supplier_payment_term.id or False
+                payment_mode = partner.supplier_payment_mode.id or False
+
+            # FIX PIT
+            key = (partner, currency_id, company.id, user_id, payment_term, payment_mode)
             invoice_vals = self._get_invoice_vals(cr, uid, key, inv_type, journal_id, move, context=context)
 
             if key not in invoices:
